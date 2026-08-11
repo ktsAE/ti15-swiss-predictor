@@ -55,15 +55,28 @@ in its lookup table.
 
 ## Deploying
 
-Netlify builds with `node build.mjs` and serves `public/`. To close the loop
-during the event, have a cron update and push:
+Netlify builds with `node build.mjs` and serves `public/`.
+
+The loop is closed by `.github/workflows/update-results.yml`, which runs the
+updater every ten minutes on GitHub's runners and commits `index.html` when a
+series has finished. That push is what makes Netlify rebuild, so a result
+reaches the site about a minute after it reaches Liquipedia — with no machine
+of your own needing to be awake at 05:00 for a Shanghai start time.
+
+It commits only when something changed, so a commit in the log means a real
+result landed. `workflow_dispatch` lets you run it by hand from the Actions
+tab.
+
+The commit is scoped to `index.html` rather than `git commit -a`. This job
+runs unattended against a public repo, and `-a` would publish anything else
+that happened to be modified in the tree.
+
+A local scheduler works too, but only while the machine is on:
 
 ```
 */10 * * * * cd ~/swissPret && node update-results.mjs && \
-             git commit -am "results" && git push
+             git commit -m results -- index.html && git push
 ```
-
-It only commits when something changed, so a push means a real result landed.
 
 ## Credit
 

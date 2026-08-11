@@ -1,0 +1,7 @@
+# Treat the sources as text no matter what bytes end up in them. A stray NUL
+# once made update-results.mjs look binary to git, which hid its diff and made
+# grep silently match nothing.
+*.mjs  text
+*.html text
+*.md   text
+*.yml  text
