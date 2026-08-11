@@ -33,6 +33,12 @@ jobs:
       - name: Read Liquipedia
         run: node update-results.mjs
 
+      # Netlify runs this on every deploy. Running it here too means a result
+      # that somehow breaks the build is caught before it is pushed, rather
+      # than failing the deploy and leaving the site on a stale bracket.
+      - name: Check it still builds
+        run: node build.mjs
+
       - name: Commit if a series finished
         run: |
           if git diff --quiet -- index.html; then
