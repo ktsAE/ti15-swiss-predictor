@@ -1,0 +1,48 @@
+# Pulls finished series off Liquipedia and commits them. The push is what
+# makes Netlify rebuild, so this one job closes the whole loop: wiki edit ->
+# live site, with nobody's laptop needing to be awake.
+name: Update results
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub cron is UTC; TI plays roughly 02:00-14:00 UTC.
+    # Running around the clock costs nothing and covers schedule slips, and
+    # one parse request per 10 minutes sits far inside Liquipedia's limit of
+    # one per 30 seconds.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+# A slow run must never overlap the next tick and race it to the same commit.
+concurrency:
+  group: update-results
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Read Liquipedia
+        run: node update-results.mjs
+
+      - name: Commit if a series finished
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "No new results."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Scoped to index.html on purpose: this job runs unattended against a
+          # public repo, and `commit -a` would publish anything else that
+          # happened to be modified in the tree.
+          git commit -m "Results from Liquipedia" -- index.html
+          git push
