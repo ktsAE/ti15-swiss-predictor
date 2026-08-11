@@ -1,0 +1,1383 @@
+<title>TI15 Swiss Predictor — The International 2026</title>
+
+<style>
+  /* ============================================================
+     TOKENS
+     Neutrals carry a blue-slate bias pulled from Dota's own UI;
+     bronze is the Aegis metal and is the only accent.
+     Radiant green / Dire red are semantic (advance / eliminated).
+     ============================================================ */
+  :root {
+    --ground:      #E7EBED;
+    --panel:       #FFFFFF;
+    --panel-2:     #DCE3E6;
+    --panel-sunk:  #D2DADE;
+    --line:        #C3CDD2;
+    --line-soft:   #D8E0E3;
+    --ink:         #141C22;
+    --ink-2:       #4C5D67;
+    --ink-3:       #7C8B94;
+    --bronze:      #8A6118;
+    --bronze-lit:  #B4832C;
+    --bronze-wash: rgba(180,131,44,0.13);
+    --radiant:     #3F6B27;
+    --radiant-wash:rgba(63,107,39,0.12);
+    --dire:        #9A322D;
+    --dire-wash:   rgba(154,50,45,0.10);
+    --shadow:      0 1px 2px rgba(20,28,34,0.09), 0 6px 18px rgba(20,28,34,0.05);
+
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+
+    color-scheme: light;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:      #0E1418;
+      --panel:       #161F26;
+      --panel-2:     #1D2831;
+      --panel-sunk:  #121A20;
+      --line:        #2A3841;
+      --line-soft:   #202C34;
+      --ink:         #E3E9EC;
+      --ink-2:       #93A5AF;
+      --ink-3:       #63747E;
+      --bronze:      #C8963E;
+      --bronze-lit:  #E7B961;
+      --bronze-wash: rgba(200,150,62,0.15);
+      --radiant:     #7FB253;
+      --radiant-wash:rgba(127,178,83,0.14);
+      --dire:        #C4514A;
+      --dire-wash:   rgba(196,81,74,0.13);
+      --shadow:      0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.28);
+      color-scheme: dark;
+    }
+  }
+
+  /* The viewer's own toggle must win over the OS preference, both ways. */
+  :root[data-theme="dark"] {
+    --ground:#0E1418; --panel:#161F26; --panel-2:#1D2831; --panel-sunk:#121A20;
+    --line:#2A3841; --line-soft:#202C34;
+    --ink:#E3E9EC; --ink-2:#93A5AF; --ink-3:#63747E;
+    --bronze:#C8963E; --bronze-lit:#E7B961; --bronze-wash:rgba(200,150,62,0.15);
+    --radiant:#7FB253; --radiant-wash:rgba(127,178,83,0.14);
+    --dire:#C4514A; --dire-wash:rgba(196,81,74,0.13);
+    --shadow:0 1px 2px rgba(0,0,0,0.4), 0 8px 24px rgba(0,0,0,0.28);
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    --ground:#E7EBED; --panel:#FFFFFF; --panel-2:#DCE3E6; --panel-sunk:#D2DADE;
+    --line:#C3CDD2; --line-soft:#D8E0E3;
+    --ink:#141C22; --ink-2:#4C5D67; --ink-3:#7C8B94;
+    --bronze:#8A6118; --bronze-lit:#B4832C; --bronze-wash:rgba(180,131,44,0.13);
+    --radiant:#3F6B27; --radiant-wash:rgba(63,107,39,0.12);
+    --dire:#9A322D; --dire-wash:rgba(154,50,45,0.10);
+    --shadow:0 1px 2px rgba(20,28,34,0.09), 0 6px 18px rgba(20,28,34,0.05);
+    color-scheme: light;
+  }
+
+  /* ============================================================ */
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 1400px; margin: 0 auto; padding: 0 20px 72px; }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px 32px;
+    padding: 34px 0 22px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .brand h1 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.04;
+    letter-spacing: -0.015em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  .brand h1 em { font-style: normal; color: var(--bronze); }
+  .brand .meta {
+    margin: 9px 0 0;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .brand .meta span + span::before { content: "·"; margin: 0 8px; color: var(--line); }
+
+  .headline { text-align: right; min-width: 210px; }
+  .headline .lbl {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    display: block;
+    margin-bottom: 3px;
+  }
+  .headline .val { font-family: var(--serif); font-size: 27px; line-height: 1.15; color: var(--ink-3); }
+  .headline.set .val { color: var(--bronze); }
+
+  /* ---------- control bar ---------- */
+
+  .controls {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 0;
+    margin-bottom: 8px;
+    background: var(--ground);
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .jump { display: flex; gap: 4px; }
+
+  a.tab, button.btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 6px 11px;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  a.tab:hover, button.btn:hover { color: var(--ink); border-color: var(--ink-3); }
+  button.btn.primary {
+    color: var(--bronze);
+    border-color: color-mix(in srgb, var(--bronze) 45%, transparent);
+    background: var(--bronze-wash);
+  }
+  button.btn.primary:hover { color: var(--bronze-lit); border-color: var(--bronze); }
+  a.tab:focus-visible, button.btn:focus-visible,
+  .pick:focus-visible, .optbtn:focus-visible {
+    outline: 2px solid var(--bronze);
+    outline-offset: 2px;
+  }
+
+  .spacer { flex: 1 1 auto; }
+
+  .progress {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .progress b { color: var(--ink); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+
+  section { padding-top: 30px; scroll-margin-top: 62px; }
+
+  .sechead {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+  }
+  .sechead h2 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 25px;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .sechead .stagetag {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--bronze);
+    border: 1px solid color-mix(in srgb, var(--bronze) 38%, transparent);
+    border-radius: 2px;
+    padding: 2px 7px;
+  }
+  .sechead .dates { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.05em; }
+  .secnote { margin: 0 0 18px; color: var(--ink-2); font-size: 13.5px; max-width: 74ch; }
+
+  /* ---------- swiss layout ---------- */
+
+  .swisslayout {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 320px;
+    gap: 26px;
+    align-items: start;
+  }
+
+  .roundscroll { overflow-x: auto; padding-bottom: 6px; }
+  .rounds {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(166px, 1fr));
+    gap: 10px;
+    min-width: 870px;
+  }
+  .roundcol { display: flex; flex-direction: column; gap: 7px; }
+
+  .roundhead { padding: 0 0 6px; border-bottom: 1px solid var(--line); }
+  .rh-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .rh-top .n { color: var(--ink); }
+  .rh-rule {
+    margin-top: 3px;
+    font-size: 10px;
+    color: var(--ink-3);
+    letter-spacing: 0.02em;
+  }
+  .rh-rule.cross { color: var(--radiant); }
+
+  .locked {
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    padding: 16px 12px;
+    color: var(--ink-3);
+    font-size: 12px;
+    line-height: 1.45;
+    background: var(--panel-sunk);
+  }
+
+  /* ---------- match card ---------- */
+
+  .match {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .match.done { border-color: var(--line); }
+
+  .match .mhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--line-soft);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .match .mhead .again {
+    color: var(--dire);
+    border: 1px solid color-mix(in srgb, var(--dire) 40%, transparent);
+    border-radius: 2px;
+    padding: 0 4px;
+    margin-left: 5px;
+    letter-spacing: 0.06em;
+  }
+
+  .pick {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-left: 3px solid transparent;
+    padding: 7px 9px 7px 7px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s, opacity .12s;
+  }
+  .pick + .pick { border-top: 1px solid var(--line-soft); }
+  /* Only the clickable rows react — a played result is rendered as a div. */
+  button.pick:hover { background: var(--bronze-wash); }
+
+  .pick .seed {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-3);
+    min-width: 17px;
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+  }
+  .pick .nm { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pick .rec {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-3);
+    font-variant-numeric: tabular-nums;
+    flex: 0 0 auto;
+  }
+
+  .pick.won {
+    border-left-color: var(--bronze);
+    background: var(--bronze-wash);
+    color: var(--bronze);
+    font-weight: 600;
+  }
+  .pick.won .rec, .pick.won .seed { color: var(--bronze); }
+  .pick.lost { opacity: 0.42; }
+  .pick.lost .nm { text-decoration: line-through; text-decoration-thickness: 1px; }
+  .pick.tbd { color: var(--ink-3); font-style: italic; cursor: default; }
+
+  /* ---------- standings rail ---------- */
+
+  .rail {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 62px;
+    overflow: hidden;
+  }
+  .railhead { padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
+  .railhead h3 {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .railhead p { margin: 4px 0 0; font-size: 11px; color: var(--ink-3); line-height: 1.4; }
+
+  table.stand { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.stand th {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 400;
+    text-align: right;
+    padding: 6px 8px 5px;
+    border-bottom: 1px solid var(--line);
+  }
+  table.stand th.l, table.stand td.l { text-align: left; }
+  table.stand td {
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--line-soft);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+  table.stand td.pos { font-family: var(--mono); font-size: 11px; color: var(--ink-3); width: 24px; }
+  table.stand td.nm { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  table.stand td.grp { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); width: 16px; }
+  table.stand td.wl { font-family: var(--mono); font-size: 11.5px; }
+  table.stand td.bh { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  table.stand td.mark { font-family: var(--mono); font-size: 10px; width: 18px; padding-left: 0; }
+
+  tr.z-direct td.nm { color: var(--bronze); font-weight: 600; }
+  tr.z-direct td.mark { color: var(--bronze); }
+  tr.z-out td { color: var(--ink-3); }
+  tr.z-out td.nm { text-decoration: line-through; text-decoration-thickness: 1px; }
+  tr.z-out td.mark { color: var(--dire); }
+
+  tr.cut-direct td { border-top: 2px solid var(--bronze); }
+  tr.cut-out td { border-top: 2px solid var(--dire); }
+
+  tr.cutlabel td {
+    padding: 3px 8px;
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-align: left;
+    border-bottom: 0;
+  }
+  tr.cutlabel.d td { color: var(--bronze); background: var(--bronze-wash); }
+  tr.cutlabel.o td { color: var(--dire); background: var(--dire-wash); }
+
+  /* ---------- elimination round: pick-your-opponent ---------- */
+
+  .picklist { display: flex; flex-direction: column; gap: 9px; margin-bottom: 22px; }
+
+  .slot {
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-radius: 4px;
+    padding: 9px 11px;
+    box-shadow: var(--shadow);
+    display: grid;
+    grid-template-columns: 168px minmax(0,1fr);
+    gap: 12px;
+    align-items: center;
+  }
+  .slot.pending { border-color: color-mix(in srgb, var(--bronze) 45%, transparent); }
+  .slot.waiting { opacity: 0.5; }
+
+  .slot .who {
+    font-size: 13px;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .slot .who .ord {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+  }
+  .slot .who .tn { font-weight: 600; }
+
+  .opts { display: flex; flex-wrap: wrap; gap: 5px; }
+  .optbtn {
+    font-family: var(--sans);
+    font-size: 12px;
+    color: var(--ink-2);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 3px 8px;
+    cursor: pointer;
+    transition: color .12s, border-color .12s, background .12s;
+  }
+  .optbtn:hover { color: var(--bronze); border-color: var(--bronze); background: var(--bronze-wash); }
+  .optbtn.chosen {
+    color: var(--bronze);
+    border-color: var(--bronze);
+    background: var(--bronze-wash);
+    font-weight: 600;
+  }
+  .optbtn .r { font-family: var(--mono); font-size: 10px; opacity: 0.7; margin-left: 4px; }
+  .slot .note { font-size: 11.5px; color: var(--ink-3); font-style: italic; }
+
+  .elimgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(214px, 1fr)); gap: 10px; }
+
+  /* ---------- panel heads ---------- */
+
+  .brackethead {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 24px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brackethead h3 {
+    margin: 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .brackethead.upper h3 { color: var(--radiant); }
+  .brackethead.lower h3 { color: var(--dire); }
+  .brackethead .sub { font-size: 11.5px; color: var(--ink-3); }
+
+  /* ---------- the eight who make it out ---------- */
+
+  .lineup {
+    margin-top: 26px;
+    border: 1px solid color-mix(in srgb, var(--bronze) 42%, transparent);
+    border-radius: 5px;
+    background: linear-gradient(180deg, var(--bronze-wash), transparent 65%), var(--panel);
+    padding: 18px;
+    box-shadow: var(--shadow);
+  }
+  .lineup h3 {
+    font-family: var(--serif);
+    font-weight: 400;
+    font-size: 23px;
+    margin: 0 0 5px;
+    color: var(--bronze);
+  }
+  .lineup > p { margin: 0 0 14px; font-size: 13px; color: var(--ink-2); max-width: 60ch; }
+
+  .qgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 7px; }
+  .qteam {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    background: var(--panel);
+    border: 1px solid var(--line-soft);
+    border-left: 3px solid var(--bronze);
+    border-radius: 3px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+  .qteam .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qteam .via {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin-left: auto;
+    flex: 0 0 auto;
+  }
+
+  /* ---------- results already played ---------- */
+
+  .pick.final { cursor: default; }
+  .match.final { border-color: color-mix(in srgb, var(--radiant) 34%, var(--line)); }
+  .match .mhead .fin {
+    color: var(--radiant);
+    border: 1px solid color-mix(in srgb, var(--radiant) 40%, transparent);
+    border-radius: 2px;
+    padding: 0 4px;
+    margin-left: 5px;
+    letter-spacing: 0.06em;
+  }
+  .rh-rule.official { color: var(--radiant); }
+
+  .lockwarn {
+    border: 1px solid var(--dire);
+    background: var(--dire-wash);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+  }
+  .lockwarn b {
+    display: block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--dire);
+    margin-bottom: 5px;
+  }
+  .lockwarn ul { margin: 0; padding-left: 17px; }
+
+  .stagelock {
+    border: 1px dashed var(--line);
+    border-radius: 4px;
+    padding: 26px 20px;
+    text-align: center;
+    color: var(--ink-3);
+    font-size: 13px;
+    background: var(--panel-sunk);
+  }
+
+  /* ---------- footer ---------- */
+
+  footer.notes {
+    margin-top: 54px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-3);
+    font-size: 12px;
+    line-height: 1.6;
+    max-width: 82ch;
+  }
+  footer.notes h4 {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 8px;
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  footer.notes p { margin: 0 0 8px; }
+  footer.notes strong { color: var(--ink-2); font-weight: 600; }
+  footer.notes a { color: var(--bronze); }
+  footer.notes code { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); }
+
+  @media (max-width: 1120px) {
+    .swisslayout { grid-template-columns: minmax(0,1fr); }
+    .rail { position: static; }
+    .gf { grid-template-columns: minmax(0,1fr); }
+  }
+  @media (max-width: 900px) {
+    .headline { text-align: left; min-width: 0; }
+    .slot { grid-template-columns: minmax(0,1fr); gap: 7px; }
+  }
+  @media (max-width: 620px) {
+    .wrap { padding: 0 13px 56px; }
+    .masthead { padding-top: 26px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <div class="brand">
+      <h1>The International <em>2026</em></h1>
+      <p class="meta">
+        <span>TI15</span><span>Oriental Sports Center, Shanghai</span><span>13–23 Aug</span><span>16 teams</span>
+      </p>
+    </div>
+    <div class="headline" id="lineupBox">
+      <span class="lbl">Through to the main event</span>
+      <div class="val" id="lineupVal">0 of 8</div>
+    </div>
+  </header>
+
+  <div class="controls">
+    <div class="jump">
+      <a class="tab" href="#swiss">Swiss</a>
+      <a class="tab" href="#elim">Elimination</a>
+    </div>
+    <span class="spacer"></span>
+    <span class="progress" id="progress"></span>
+    <button class="btn primary" id="btnSim">Simulate rest</button>
+    <button class="btn" id="btnClear">Clear picks</button>
+  </div>
+
+  <div id="warnings"></div>
+
+  <main>
+
+    <section id="swiss">
+      <div class="sechead">
+        <h2>Group stage</h2>
+        <span class="stagetag">Modified Swiss · Bo3</span>
+        <span class="dates">13–16 Aug</span>
+      </div>
+      <p class="secnote">
+        Win four and you are through; lose four and you are out, and you stop playing the moment
+        either lands. The 16 teams are split into two groups of eight: rounds 1–3 are played
+        inside your own group, round 4 only against the other group, round 5 is open. Within that,
+        teams always meet someone on their exact record, and the pairing minimises the gap in
+        the standings.
+      </p>
+
+      <div class="swisslayout">
+        <div class="roundscroll">
+          <div class="rounds" id="rounds"></div>
+        </div>
+
+        <aside class="rail">
+          <div class="railhead">
+            <h3>Live standings</h3>
+            <p>Wins, then losses, then opponents' total wins.</p>
+          </div>
+          <table class="stand">
+            <thead>
+              <tr>
+                <th class="l" style="width:24px">#</th>
+                <th class="l">Team</th>
+                <th class="l" style="width:16px">G</th>
+                <th>W–L</th>
+                <th>BH</th>
+                <th style="width:18px"></th>
+              </tr>
+            </thead>
+            <tbody id="standings"></tbody>
+          </table>
+        </aside>
+      </div>
+    </section>
+
+    <section id="elim">
+      <div class="sechead">
+        <h2>Elimination round</h2>
+        <span class="stagetag">Teams pick opponents · Bo3</span>
+        <span class="dates">16 Aug</span>
+      </div>
+      <p class="secnote">
+        No seeded ladder here — the teams choose. The best 3–2 team picks whichever 2–3 team it
+        wants to face, then the next best picks from those left, and so on down. Five winners
+        join the three teams already through.
+      </p>
+      <div id="elimWrap"></div>
+    </section>
+
+  </main>
+
+  <footer class="notes">
+    <h4>Where this comes from</h4>
+    <p>
+      <strong>Rules and round-1 draw</strong> are Valve's, via the
+      <a href="https://liquipedia.net/dota2/The_International/2026">Liquipedia TI 2026 pages</a>.
+      Round 1 is the real published draw, not a seeding guess. Pairing follows the official
+      rules in order: same record, avoid repeat pairings, minimise the gap in the standings —
+      with the per-round group restrictions, and with round 5 reversed to <em>maximise</em> the
+      gap in matches where the loser is knocked out. Teams appear under their TI names
+      (BoomBoys, Iron Wing, TEAM VISION, HULIGANI).
+    </p>
+    <p>
+      <strong>What is modelled loosely</strong> — the real tiebreak chain continues into game
+      win percentage, opponents' game win percentage and average game duration. This tool only
+      tracks series, so it resolves ties on wins, losses and opponents' wins, then falls back to
+      a fixed order. The tool stops where Valve's published information does: it names the eight
+      teams who reach the main event, but not their bracket seeding, which has not been announced.
+    </p>
+    <p>
+      <strong>Results already played</strong> are marked <em>final</em> and cannot be clicked.
+      Those come from the <code>RESULTS</code> table at the top of the script, filled in as the
+      tournament goes; everything after them is still yours to pick.
+    </p>
+    <p>
+      The strength ratings behind <em>Simulate rest</em> are my own rough prior and affect
+      nothing you click yourself. An unofficial fan tool, not affiliated with Valve.
+    </p>
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ------------------------------------------------------------------
+     TEAMS — the 16 at TI15, under their TI names, with the group they
+     were drawn into. Groups are inferred from the published round-1
+     draw: rounds 1-3 are intra-group, so the eight teams in the first
+     four series form one group and the rest the other.
+     ------------------------------------------------------------------ */
+  var TEAMS = [
+    { id:"flcn", name:"Team Falcons",    org:"",              group:"A", entry:"Invite",        rating:92 },
+    { id:"lgd",  name:"LGD Gaming",      org:"",              group:"A", entry:"SA Qualifier",  rating:63 },
+    { id:"1w",   name:"Iron Wing",       org:"1win",          group:"A", entry:"Invite",        rating:77 },
+    { id:"ngx",  name:"Nigma Galaxy",    org:"",              group:"A", entry:"EU Qualifier",  rating:74 },
+    { id:"bb",   name:"BoomBoys",        org:"BetBoom Team",  group:"A", entry:"Invite",        rating:84 },
+    { id:"og",   name:"OG",              org:"",              group:"A", entry:"SEA Qualifier", rating:67 },
+    { id:"pari", name:"TEAM VISION",     org:"PARIVISION",    group:"A", entry:"EU Qualifier",  rating:86 },
+    { id:"tr",   name:"Team Resilience", org:"",              group:"A", entry:"CN Qualifier",  rating:73 },
+
+    { id:"ts",   name:"Team Spirit",     org:"",              group:"B", entry:"EU Qualifier",  rating:91 },
+    { id:"xg",   name:"Xtreme Gaming",   org:"",              group:"B", entry:"Invite",        rating:81 },
+    { id:"liq",  name:"Team Liquid",     org:"",              group:"B", entry:"Invite",        rating:79 },
+    { id:"vg",   name:"Vici Gaming",     org:"",              group:"B", entry:"CN Qualifier",  rating:71 },
+    { id:"aur",  name:"Aurora",          org:"",              group:"B", entry:"Invite",        rating:82 },
+    { id:"gl",   name:"GamerLegion",     org:"",              group:"B", entry:"NA Qualifier",  rating:65 },
+    { id:"yndx", name:"Team Yandex",     org:"",              group:"B", entry:"Invite",        rating:88 },
+    { id:"l1ga", name:"HULIGANI",        org:"L1GA TEAM",     group:"B", entry:"EU Qualifier",  rating:69 }
+  ];
+
+  // The actual published round-1 draw, in broadcast order.
+  var ROUND_1 = [
+    ["flcn", "lgd"], ["1w", "ngx"], ["bb", "og"], ["pari", "tr"],
+    ["ts", "xg"], ["liq", "vg"], ["aur", "gl"], ["yndx", "l1ga"]
+  ];
+
+  /* ------------------------------------------------------------------
+     RESULTS — series that have actually been played. Add each one as it
+     finishes, winner first, to the round it belongs to:
+
+         r2: [["flcn", "og"], ["ts", "aur"]]     Falcons beat OG, etc.
+
+     A locked series shows as final, cannot be clicked, and is not touched
+     by "Clear picks", so someone arriving on day three only picks what is
+     still open. Fill the rounds in order — a round's pairings are only
+     settled once everything before it is in here. Anything that does not
+     match the pairing the rules produce is flagged on the page rather
+     than quietly ignored.
+     ------------------------------------------------------------------ */
+  var RESULTS = {
+    r1:   [],
+    r2:   [],
+    r3:   [],
+    r4:   [],
+    r5:   [],
+    elim: []
+  };
+
+  var BY_ID = {};
+  TEAMS.forEach(function (t, i) { BY_ID[t.id] = t; t.fallback = i; });
+
+  // Quoted rather than blank when RESULTS names a team that does not exist.
+  function nameOf(id) { return BY_ID[id] ? BY_ID[id].name : '"' + id + '"'; }
+
+  var SWISS_ROUNDS = 5;
+  var QUALIFY_AT = 4;      // four wins: through to the main event
+  var ELIMINATE_AT = 4;    // four losses: tournament over
+
+  // Fixed by the format: nobody can reach four of anything before round 4,
+  // and round 4 always produces exactly one 4-0 and one 0-4.
+  var SWISS_ROUND_SIZES = [8, 8, 8, 8, 7];
+  var SWISS_TOTAL = 39;
+
+  var ROUND_RULE = [
+    "Official draw · within groups",
+    "Within groups",
+    "Within groups",
+    "Across groups",
+    "Open · losers' matches spread"
+  ];
+
+  /* ------------------------------------------------------------------
+     STATE — only picks are stored; every pairing is derived from them.
+     ------------------------------------------------------------------ */
+  var state = {
+    picks: {},      // matchId -> winning team id
+    choices: {}     // elimination round: chooser id -> opponent id
+  };
+
+  function pkey(a, b) { return a < b ? a + "|" + b : b + "|" + a; }
+
+  /* ---------------- played results ---------------- */
+
+  // One map per round rather than one for the whole stage, so that a pair
+  // meeting twice is never mistaken for the earlier meeting.
+  function lockMap(list) {
+    var m = {};
+    (list || []).forEach(function (p) { m[pkey(p[0], p[1])] = p[0]; });
+    return m;
+  }
+
+  var SWISS_LOCKS = ["r1", "r2", "r3", "r4", "r5"].map(function (k) {
+    return lockMap(RESULTS[k]);
+  });
+  var ELIM_LOCKS = lockMap(RESULTS.elim);
+
+  // Locked pairs that the rules never actually produced — a typo, or a
+  // result entered before the round above it was filled in.
+  function strayLocks(map, matches, label) {
+    var seen = {};
+    matches.forEach(function (m) { seen[pkey(m.a, m.b)] = true; });
+    return Object.keys(map).filter(function (k) { return !seen[k]; }).map(function (k) {
+      var side = k.split("|");
+      return label + ": " + nameOf(side[0]) + " v " + nameOf(side[1]) +
+             " is not a pairing these rules produce.";
+    });
+  }
+
+  /* ---------------- ranking ---------------- */
+
+  function buchholz(id, rec) {
+    return rec[id].opps.reduce(function (s, o) { return s + rec[o].w; }, 0);
+  }
+
+  // Valve's order: matches won, matches lost, then opponents' total wins.
+  // The chain continues into game-level stats this tool does not track, so
+  // anything still level falls back to a fixed order.
+  function rankIds(rec) {
+    return TEAMS.map(function (t) { return t.id; }).sort(function (x, y) {
+      if (rec[y].w !== rec[x].w) return rec[y].w - rec[x].w;
+      if (rec[x].l !== rec[y].l) return rec[x].l - rec[y].l;
+      var bx = buchholz(x, rec), by = buchholz(y, rec);
+      if (by !== bx) return by - bx;
+      return BY_ID[x].fallback - BY_ID[y].fallback;
+    });
+  }
+
+  /* ---------------- pairing ---------------- */
+
+  function forcePairs(pool) {
+    var out = [];
+    for (var i = 0; i + 1 < pool.length; i += 2) out.push([pool[i], pool[i + 1]]);
+    return out;
+  }
+
+  // Exhaustive best perfect matching inside one bucket. Buckets are at most
+  // eight teams, so this is a handful of combinations. Cost is lexicographic:
+  // first avoid repeat pairings, then minimise total gap in the standings
+  // (or maximise it, for round-5 matches where the loser goes home).
+  function bestMatching(list, played, rank, opts) {
+    var best = null;
+    var order = list.slice();
+
+    function walk(rem, acc, repeats, dist) {
+      if (rem.length === 0) {
+        var d = opts.maximize ? -dist : dist;
+        if (!best || repeats < best.repeats || (repeats === best.repeats && d < best.d)) {
+          best = { repeats: repeats, d: d, pairs: acc.slice() };
+        }
+        return;
+      }
+      var a = rem[0];
+      var idxs = [];
+      for (var i = 1; i < rem.length; i++) idxs.push(i);
+      // Trying the furthest opponent first makes "maximise the gap" resolve to
+      // top-versus-bottom when several matchings tie on total distance.
+      if (opts.maximize) idxs.reverse();
+
+      idxs.forEach(function (i) {
+        var b = rem[i];
+        if (opts.cross && BY_ID[a].group === BY_ID[b].group) return;
+        var next = rem.filter(function (_, j) { return j !== 0 && j !== i; });
+        acc.push([a, b]);
+        walk(next, acc,
+             repeats + (played[pkey(a, b)] ? 1 : 0),
+             dist + Math.abs(rank[a] - rank[b]));
+        acc.pop();
+      });
+    }
+
+    walk(order, [], 0, 0);
+    return best ? best.pairs : forcePairs(list);
+  }
+
+  // Buckets the active field, then matches inside each bucket. Teams only ever
+  // face someone on their exact record; rounds 2-3 add "same group", round 4
+  // adds "other group". Because rounds 1-3 are intra-group, every record
+  // bucket splits evenly between the two groups, so round 4 always works.
+  function pairRound(r, active, rec, played, rank) {
+    var sameGroup = (r === 1 || r === 2);
+    var cross = (r === 3);
+
+    var buckets = [];
+    var seen = {};
+    active.forEach(function (id) {
+      var k = rec[id].w + "-" + rec[id].l + (sameGroup ? "|" + BY_ID[id].group : "");
+      if (!(k in seen)) { seen[k] = buckets.length; buckets.push([]); }
+      buckets[seen[k]].push(id);
+    });
+
+    var pairs = [];
+    buckets.forEach(function (b) {
+      // Round 5 only: in a bucket on three losses the loser is eliminated,
+      // and those matches maximise the ranking gap instead of minimising it.
+      var maximize = (r === 4 && rec[b[0]].l === ELIMINATE_AT - 1);
+      pairs = pairs.concat(bestMatching(b, played, rank, { cross: cross, maximize: maximize }));
+    });
+    return pairs;
+  }
+
+  /* ---------------- stages ---------------- */
+
+  function buildSwiss() {
+    var rec = {};
+    TEAMS.forEach(function (t) { rec[t.id] = { w: 0, l: 0, opps: [] }; });
+
+    var played = {};
+    var rounds = [];
+    var recAt = [];
+    var complete = true;
+    var warnings = [];
+    // True while every round so far came entirely from RESULTS. Only then are
+    // the next round's pairings settled fact, and only then is it fair to
+    // flag its locks as stray rather than blame the visitor's own picks.
+    var settled = true;
+
+    for (var r = 0; r < SWISS_ROUNDS; r++) {
+      var snap = {};
+      TEAMS.forEach(function (t) { snap[t.id] = { w: rec[t.id].w, l: rec[t.id].l }; });
+      recAt.push(snap);
+
+      var ranked = rankIds(rec);
+      var rank = {};
+      ranked.forEach(function (id, i) { rank[id] = i; });
+
+      var active = ranked.filter(function (id) {
+        return rec[id].w < QUALIFY_AT && rec[id].l < ELIMINATE_AT;
+      });
+      if (active.length < 2) break;
+
+      var pairs = (r === 0) ? ROUND_1 : pairRound(r, active, rec, played, rank);
+
+      var locks = SWISS_LOCKS[r];
+      var matches = pairs.map(function (p, i) {
+        var id = "S" + r + "-" + i;
+        var k = pkey(p[0], p[1]);
+        var fixed = locks[k];
+        var w = fixed || state.picks[id];
+        if (w !== p[0] && w !== p[1]) w = null;
+        return {
+          id: id, a: p[0], b: p[1], winner: w, locked: !!fixed, bo: 3,
+          rematch: !!played[k]
+        };
+      });
+      rounds.push(matches);
+
+      if (settled) warnings = warnings.concat(strayLocks(locks, matches, "Round " + (r + 1)));
+      settled = settled && matches.every(function (m) { return m.locked; });
+
+      matches.forEach(function (m) { played[pkey(m.a, m.b)] = true; });
+
+      if (!matches.every(function (m) { return !!m.winner; })) { complete = false; break; }
+
+      matches.forEach(function (m) {
+        var loser = m.winner === m.a ? m.b : m.a;
+        rec[m.winner].w++;
+        rec[loser].l++;
+        rec[m.winner].opps.push(loser);
+        rec[loser].opps.push(m.winner);
+      });
+    }
+
+    return {
+      rounds: rounds, rec: rec, recAt: recAt, complete: complete,
+      settled: settled, warnings: warnings, order: rankIds(rec)
+    };
+  }
+
+  // Elimination round: the best 3-2 team picks any 2-3 team, then the next
+  // best picks from what is left, and so on. Nobody picks until the team
+  // above them has, so a change near the top reshuffles everything below.
+  function buildElim(swiss) {
+    if (!swiss.complete) {
+      return { ready: false, slots: [], matches: [], through: [], out: [], lineup: [], warnings: [] };
+    }
+
+    var rec = swiss.rec;
+    var through = swiss.order.filter(function (id) { return rec[id].w >= QUALIFY_AT; });
+    var out = swiss.order.filter(function (id) { return rec[id].l >= ELIMINATE_AT; });
+    var choosers = swiss.order.filter(function (id) { return rec[id].w === 3 && rec[id].l === 2; });
+    var pool = swiss.order.filter(function (id) { return rec[id].w === 2 && rec[id].l === 3; });
+
+    var taken = {};
+    var slots = [];
+    var matches = [];
+
+    for (var i = 0; i < choosers.length; i++) {
+      var c = choosers[i];
+      var available = pool.filter(function (p) { return !taken[p]; });
+
+      // A played series settles who was picked as well as who won.
+      var settledPick = null;
+      available.forEach(function (p) { if (ELIM_LOCKS[pkey(c, p)]) settledPick = p; });
+
+      var chosen = settledPick || state.choices[c];
+      if (available.indexOf(chosen) < 0) chosen = null;
+      // The last team has no decision left to make.
+      if (!chosen && available.length === 1) chosen = available[0];
+
+      slots.push({
+        chooser: c, available: available, chosen: chosen,
+        locked: !!settledPick, order: i
+      });
+
+      if (!chosen) break;
+      taken[chosen] = true;
+
+      var mid = "E" + i;
+      var fixed = ELIM_LOCKS[pkey(c, chosen)];
+      var w = fixed || state.picks[mid];
+      if (w !== c && w !== chosen) w = null;
+      matches.push({
+        id: mid, label: "Elimination " + (i + 1),
+        a: c, b: chosen, winner: w, locked: !!fixed, bo: 3
+      });
+    }
+
+    // Only meaningful once the whole group stage is real; before that the
+    // pairings depend on the visitor's own picks.
+    var warnings = swiss.settled ? strayLocks(ELIM_LOCKS, matches, "Elimination round") : [];
+
+    var lineup = through.map(function (id) { return { id: id, via: "Four wins" }; });
+    for (var s = 0; s < choosers.length; s++) {
+      var m = matches[s];
+      lineup.push({ id: m && m.winner ? m.winner : null, via: "Elimination round" });
+    }
+
+    return {
+      ready: true,
+      slots: slots,
+      matches: matches,
+      allChosen: matches.length === choosers.length,
+      through: through,
+      out: out,
+      lineup: lineup,
+      warnings: warnings
+    };
+  }
+
+  function computeAll() {
+    var swiss = buildSwiss();
+    var elim = buildElim(swiss);
+    return { swiss: swiss, elim: elim, warnings: swiss.warnings.concat(elim.warnings) };
+  }
+
+  /* ---------------- rendering ---------------- */
+
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function matchHTML(m, opts) {
+    opts = opts || {};
+    var done = !!m.winner;
+
+    var rows = [["a", m.a, m.fa], ["b", m.b, m.fb]].map(function (row) {
+      var id = row[1], feeder = row[2];
+      if (!id) {
+        return '<div class="pick tbd"><span class="seed">—</span>' +
+               '<span class="nm">' + esc(feeder || "TBD") + "</span></div>";
+      }
+
+      var t = BY_ID[id];
+      var cls = "pick" + (done ? (m.winner === id ? " won" : " lost") : "") +
+                (m.locked ? " final" : "");
+      var tail = opts.rec
+        ? '<span class="rec">' + opts.rec[id].w + "–" + opts.rec[id].l + "</span>"
+        : "";
+      var body = '<span class="seed">' + esc(t.group) + "</span>" +
+                 '<span class="nm">' + esc(t.name) + "</span>" + tail;
+
+      // A played series is reported, not offered.
+      if (m.locked) return '<div class="' + cls + '">' + body + "</div>";
+
+      return '<button class="' + cls + '" data-match="' + m.id + '" data-team="' + id + '">' +
+             body + "</button>";
+    }).join("");
+
+    var tag = (m.rematch ? '<span class="again">rematch</span>' : "") +
+              (m.locked ? '<span class="fin">final</span>' : "");
+    return '<div class="match' + (done ? " done" : "") + (m.locked ? " final" : "") + '">' +
+           '<div class="mhead"><span>' + esc(m.label || "") + tag +
+           "</span><span>Bo" + m.bo + "</span></div>" + rows + "</div>";
+  }
+
+  function renderSwiss(swiss) {
+    var html = "";
+    for (var r = 0; r < SWISS_ROUNDS; r++) {
+      var ms = swiss.rounds[r];
+      var decided = ms ? ms.filter(function (m) { return !!m.winner; }).length : 0;
+      var size = ms ? ms.length : SWISS_ROUND_SIZES[r];
+      var official = ms && ms.length && ms.every(function (m) { return m.locked; });
+
+      html += '<div class="roundcol"><div class="roundhead">' +
+              '<div class="rh-top"><span class="n">Round ' + (r + 1) + "</span><span>" +
+              (ms ? decided + "/" + size : size + " series") + "</span></div>" +
+              '<div class="rh-rule' + (official ? " official" : (r === 3 ? " cross" : "")) + '">' +
+              (official ? "Played" : ROUND_RULE[r]) + "</div>" +
+              "</div>";
+
+      if (!ms) {
+        html += '<div class="locked">Pairings are set once round ' + r + " finishes.</div>";
+      } else {
+        (function (snap) {
+          html += ms.map(function (m) { return matchHTML(m, { rec: snap }); }).join("");
+        })(swiss.recAt[r]);
+      }
+      html += "</div>";
+    }
+    document.getElementById("rounds").innerHTML = html;
+  }
+
+  function renderStandings(swiss) {
+    var rec = swiss.rec;
+    var html = "";
+
+    swiss.order.forEach(function (id, i) {
+      var t = BY_ID[id];
+      var through = rec[id].w >= QUALIFY_AT;
+      var knocked = rec[id].l >= ELIMINATE_AT;
+      var zone = through ? "z-direct" : (knocked ? "z-out" : "z-mid");
+
+      if (i === 3) html += '<tr class="cutlabel d"><td colspan="6">Above — four wins, straight through</td></tr>';
+      if (i === 13) html += '<tr class="cutlabel o"><td colspan="6">Below — four losses, out</td></tr>';
+
+      html += '<tr class="' + zone + (i === 3 ? " cut-direct" : (i === 13 ? " cut-out" : "")) + '">' +
+              '<td class="pos l">' + (i + 1) + "</td>" +
+              '<td class="nm l">' + esc(t.name) + "</td>" +
+              '<td class="grp l">' + t.group + "</td>" +
+              '<td class="wl">' + rec[id].w + "–" + rec[id].l + "</td>" +
+              '<td class="bh">' + buchholz(id, rec) + "</td>" +
+              '<td class="mark">' + (through ? "Q" : (knocked ? "✕" : "")) + "</td></tr>";
+    });
+    document.getElementById("standings").innerHTML = html;
+  }
+
+  function renderElim(swiss, elim) {
+    var host = document.getElementById("elimWrap");
+    if (!elim.ready) {
+      host.innerHTML = '<div class="stagelock">Finish the group stage to see who picks whom.</div>';
+      return;
+    }
+
+    var ORD = ["1st pick", "2nd pick", "3rd pick", "4th pick", "5th pick"];
+    var rc = function (id) { return swiss.rec[id].w + "–" + swiss.rec[id].l; };
+
+    var html = '<div class="brackethead upper"><h3>Already through</h3><span class="sub">' +
+               esc(elim.through.map(function (id) { return BY_ID[id].name + " (" + rc(id) + ")"; }).join(" · ")) +
+               "</span></div>";
+
+    html += '<div class="picklist">';
+    elim.slots.forEach(function (s) {
+      var only = s.available.length === 1;
+      var cls = "slot" + (s.chosen ? "" : " pending");
+      html += '<div class="' + cls + '">' +
+              '<div class="who"><span class="ord">' + ORD[s.order] + '</span>' +
+              '<span class="tn">' + esc(BY_ID[s.chooser].name) + "</span>" +
+              '<span class="ord">' + rc(s.chooser) + "</span></div><div class=\"opts\">";
+      if (s.locked) {
+        html += '<span class="note">chose ' + esc(BY_ID[s.chosen].name) + "</span>";
+      } else if (only && s.chosen) {
+        html += '<span class="note">only ' + esc(BY_ID[s.chosen].name) + " left</span>";
+      } else {
+        s.available.forEach(function (p) {
+          html += '<button class="optbtn' + (s.chosen === p ? " chosen" : "") +
+                  '" data-chooser="' + s.chooser + '" data-opp="' + p + '">' +
+                  esc(BY_ID[p].name) + '<span class="r">' + rc(p) + "</span></button>";
+        });
+      }
+      html += "</div></div>";
+    });
+    // Choosers still waiting on the teams above them.
+    var remaining = 5 - elim.slots.length;
+    for (var k = 0; k < remaining; k++) {
+      html += '<div class="slot waiting"><div class="who"><span class="ord">' +
+              ORD[elim.slots.length + k] + '</span><span class="tn">—</span></div>' +
+              '<div class="opts"><span class="note">waits for the pick above</span></div></div>';
+    }
+    html += "</div>";
+
+    if (elim.matches.length) {
+      html += '<div class="elimgrid">' +
+              elim.matches.map(function (m) { return matchHTML(m, { rec: swiss.rec }); }).join("") +
+              "</div>";
+    }
+
+    html += '<div class="brackethead lower"><h3>Eliminated</h3><span class="sub">' +
+            esc(elim.out.map(function (id) { return BY_ID[id].name + " (" + rc(id) + ")"; }).join(" · ")) +
+            "</span></div>";
+
+    html += '<div class="lineup"><h3>Main event line-up</h3>' +
+            "<p>The eight teams that come out of the group stage. Valve has not published " +
+            "how they are seeded into the double-elimination bracket, so this tool stops here.</p>" +
+            '<div class="qgrid">' +
+            elim.lineup.map(function (q) {
+              return '<div class="qteam"><span class="nm">' +
+                     (q.id ? esc(BY_ID[q.id].name) : "—") + "</span>" +
+                     '<span class="via">' + esc(q.via) + "</span></div>";
+            }).join("") +
+            "</div></div>";
+
+    host.innerHTML = html;
+  }
+
+  function renderWarnings(list) {
+    var host = document.getElementById("warnings");
+    if (!list.length) { host.innerHTML = ""; return; }
+    host.innerHTML = '<div class="lockwarn"><b>Check the RESULTS table</b><ul>' +
+      list.map(function (w) { return "<li>" + esc(w) + "</li>"; }).join("") + "</ul></div>";
+  }
+
+  function renderMeta(model) {
+    var done = 0;
+    var total = SWISS_TOTAL + 5;
+
+    model.swiss.rounds.forEach(function (ms) {
+      done += ms.filter(function (m) { return !!m.winner; }).length;
+    });
+    done += model.elim.matches.filter(function (m) { return !!m.winner; }).length;
+
+    document.getElementById("progress").innerHTML = "<b>" + done + "</b> / " + total + " series decided";
+
+    var settled = model.elim.lineup.filter(function (q) { return !!q.id; }).length;
+    document.getElementById("lineupBox").classList.toggle("set", settled === 8);
+    document.getElementById("lineupVal").textContent = settled + " of 8";
+  }
+
+  function render() {
+    var model = computeAll();
+    renderSwiss(model.swiss);
+    renderStandings(model.swiss);
+    renderElim(model.swiss, model.elim);
+    renderWarnings(model.warnings);
+    renderMeta(model);
+    return model;
+  }
+
+  /* ---------------- interaction ---------------- */
+
+  document.addEventListener("click", function (e) {
+    if (!e.target.closest) return;
+
+    var opt = e.target.closest(".optbtn[data-chooser]");
+    if (opt) {
+      var chooser = opt.getAttribute("data-chooser");
+      var opp = opt.getAttribute("data-opp");
+      if (state.choices[chooser] === opp) delete state.choices[chooser];
+      else state.choices[chooser] = opp;
+      render();
+      return;
+    }
+
+    var btn = e.target.closest(".pick[data-match]");
+    if (!btn) return;
+    var mid = btn.getAttribute("data-match");
+    var tid = btn.getAttribute("data-team");
+    if (state.picks[mid] === tid) delete state.picks[mid];
+    else state.picks[mid] = tid;
+    render();
+  });
+
+  function ratingWinner(a, b) {
+    var p = 1 / (1 + Math.pow(10, (BY_ID[b].rating - BY_ID[a].rating) / 24));
+    return Math.random() < p ? a : b;
+  }
+
+  // Resolves one thing at a time, because later pairings depend on earlier
+  // results and on who picked whom.
+  function autoStep(model) {
+    var i, j, ms;
+    for (i = 0; i < model.swiss.rounds.length; i++) {
+      ms = model.swiss.rounds[i];
+      for (j = 0; j < ms.length; j++) {
+        if (!ms[j].winner) { state.picks[ms[j].id] = ratingWinner(ms[j].a, ms[j].b); return true; }
+      }
+    }
+    if (model.elim.ready) {
+      for (i = 0; i < model.elim.slots.length; i++) {
+        var s = model.elim.slots[i];
+        if (!s.chosen) {
+          // Teams pick the softest opponent available.
+          var easiest = s.available.slice().sort(function (x, y) {
+            return BY_ID[x].rating - BY_ID[y].rating;
+          })[0];
+          state.choices[s.chooser] = easiest;
+          return true;
+        }
+      }
+      for (i = 0; i < model.elim.matches.length; i++) {
+        var em = model.elim.matches[i];
+        if (!em.winner) { state.picks[em.id] = ratingWinner(em.a, em.b); return true; }
+      }
+    }
+    return false;
+  }
+
+  document.getElementById("btnSim").addEventListener("click", function () {
+    var model = computeAll();
+    var guard = 0;
+    while (guard++ < 300 && autoStep(model)) model = computeAll();
+    render();
+    document.getElementById("elim").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  document.getElementById("btnClear").addEventListener("click", function () {
+    state.picks = {};
+    state.choices = {};
+    render();
+    document.getElementById("swiss").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+
+  render();
+})();
+</script>

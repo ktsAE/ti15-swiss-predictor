@@ -1,0 +1,20 @@
+[build]
+  # index.html is written for the Artifact host and starts at <title>;
+  # build.mjs wraps it into a standalone document under public/.
+  command = "node build.mjs"
+  publish = "public"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    # The page makes no outbound requests at all, so lock that in.
+    Content-Security-Policy = "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'"
+
+[[headers]]
+  # Results change during the event, so let the page revalidate rather than
+  # letting a stale bracket sit in someone's cache.
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
