@@ -1041,15 +1041,21 @@
 
       matches.forEach(function (m) { played[pkey(m.a, m.b)] = true; });
 
-      if (!matches.every(function (m) { return !!m.winner; })) { complete = false; break; }
-
+      // Count every series that has been decided, including when only part of
+      // the round has been played. The standings should show this afternoon's
+      // results rather than sit at 0-0 until the last series of the round
+      // finishes. Pairing still stops below, because the next round's
+      // matchups genuinely are not knowable until this one is complete.
       matches.forEach(function (m) {
+        if (!m.winner) return;
         var loser = m.winner === m.a ? m.b : m.a;
         rec[m.winner].w++;
         rec[loser].l++;
         rec[m.winner].opps.push(loser);
         rec[loser].opps.push(m.winner);
       });
+
+      if (!matches.every(function (m) { return !!m.winner; })) { complete = false; break; }
     }
 
     return {
