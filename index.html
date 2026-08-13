@@ -694,7 +694,8 @@
         either lands. The 16 teams are split into two groups of eight: rounds 1–3 are played
         inside your own group, round 4 only against the other group, round 5 is open. Within that,
         teams always meet someone on their exact record, and the pairing minimises the gap in
-        the standings.
+        the standings. Rounds Valve has already drawn are shown as drawn; the rest follow the
+        rules from wherever your picks leave off.
       </p>
 
       <div class="swisslayout">
@@ -744,13 +745,18 @@
   <footer class="notes">
     <h4>Where this comes from</h4>
     <p>
-      <strong>Rules and round-1 draw</strong> are Valve's, via the
+      <strong>The draw</strong> is Valve's own. Every round Valve has published is taken from
+      its bracket exactly as drawn — marked <em>Official draw</em> above the round — so nothing
+      you can see here is a guess at a matchup that has already been announced.
+      <strong>Rounds Valve has not drawn yet</strong> are worked out from the published rules,
+      in order: same record, avoid repeat pairings, minimise the gap in the standings — with
+      the per-round group restrictions, and round 5 reversed to <em>maximise</em> the gap in
+      matches where the loser is knocked out. That part is a projection, and the moment you
+      start picking winners yourself every round after your first pick is derived, because the
+      bracket is then yours rather than Valve's. Rules and results come from Valve's league
+      API, cross-checked against the
       <a href="https://liquipedia.net/dota2/The_International/2026">Liquipedia TI 2026 pages</a>.
-      Round 1 is the real published draw, not a seeding guess. Pairing follows the official
-      rules in order: same record, avoid repeat pairings, minimise the gap in the standings —
-      with the per-round group restrictions, and with round 5 reversed to <em>maximise</em> the
-      gap in matches where the loser is knocked out. Teams appear under their TI names
-      (BoomBoys, Iron Wing, TEAM VISION, HULIGANI).
+      Teams appear under their TI names (BoomBoys, Iron Wing, TEAM VISION, HULIGANI).
     </p>
     <p>
       <strong>How teams are ranked</strong> — Valve's order is matches won, matches lost,
@@ -809,11 +815,30 @@
     { id:"l1ga", name:"HULIGANI",        org:"L1GA TEAM",     group:"B", entry:"EU Qualifier",  rating:69 }
   ];
 
-  // The actual published round-1 draw, in broadcast order.
-  var ROUND_1 = [
-    ["flcn", "lgd"], ["1w", "ngx"], ["bb", "og"], ["pari", "tr"],
-    ["ts", "xg"], ["liq", "vg"], ["aur", "gl"], ["yndx", "l1ga"]
-  ];
+  /* ------------------------------------------------------------------
+     PAIRINGS — the draw as Valve has actually published it, in broadcast
+     order, filled in a round at a time by update-results.mjs from Valve's
+     own bracket.
+
+     A round in here is used exactly as written. Only a round Valve has not
+     drawn yet gets worked out from the rules, because the last two steps of
+     Valve's tiebreak chain are average game duration and a coin toss, and a
+     bucket that reaches them is genuinely unknowable from outside. Round 2
+     of group B was decided on game duration, so this is not hypothetical.
+
+     A published round is still only trusted while everything before it came
+     from real results. Once you start picking your own winners the bracket
+     is yours, not Valve's, and it is derived from there on.
+     ------------------------------------------------------------------ */
+  var PAIRINGS = {
+    r1: [["flcn", "lgd"], ["1w", "ngx"], ["bb", "og"], ["pari", "tr"],
+         ["ts", "xg"], ["liq", "vg"], ["aur", "gl"], ["yndx", "l1ga"]],
+    r2: [["pari", "flcn"], ["bb", "1w"], ["lgd", "tr"], ["ngx", "og"],
+         ["ts", "aur"], ["yndx", "liq"], ["xg", "gl"], ["l1ga", "vg"]],
+    r3: [],
+    r4: [],
+    r5: []
+  };
 
   /* ------------------------------------------------------------------
      RESULTS — series that have actually been played. Add each one as it
@@ -1019,6 +1044,23 @@
     return best ? best.pairs : forcePairs(list);
   }
 
+  // A published round is only usable if it pairs exactly the teams still
+  // playing, each once. A half-drawn round, or one left over from results
+  // that have since changed, is worse than deriving: it would show a team
+  // playing twice, or sitting out a round it is alive for.
+  function usableDraw(list, active) {
+    if (!list || !list.length || list.length * 2 !== active.length) return false;
+    var left = {};
+    active.forEach(function (id) { left[id] = true; });
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i][0], b = list[i][1];
+      if (a === b || !left[a] || !left[b]) return false;
+      left[a] = false;
+      left[b] = false;
+    }
+    return true;
+  }
+
   // Buckets the active field, then matches inside each bucket. Teams only ever
   // face someone on their exact record; rounds 2-3 add "same group", round 4
   // adds "other group". Because rounds 1-3 are intra-group, every record
@@ -1053,6 +1095,7 @@
 
     var played = {};
     var rounds = [];
+    var isDrawn = [];
     var recAt = [];
     var complete = true;
     var warnings = [];
@@ -1075,7 +1118,17 @@
       });
       if (active.length < 2) break;
 
-      var pairs = (r === 0) ? ROUND_1 : pairRound(r, active, rec, played, rank);
+      // Valve's own draw wins wherever it exists, so a round it has already
+      // set is never guessed at. Round 1 is always taken from the table: it
+      // is set by the organiser, not produced by the rules, so there is
+      // nothing to fall back to. Later rounds need everything before them to
+      // be real, because once picks are involved the bracket has left the
+      // one Valve drew.
+      var drawn = PAIRINGS["r" + (r + 1)];
+      var official = r === 0 ? !!(drawn && drawn.length)
+                             : (settled && usableDraw(drawn, active));
+      var pairs = official ? drawn : pairRound(r, active, rec, played, rank);
+      isDrawn.push(official);
 
       var locks = SWISS_LOCKS[r], scores = SWISS_SCORES[r];
       var matches = pairs.map(function (p, i) {
@@ -1117,8 +1170,9 @@
     }
 
     return {
-      rounds: rounds, rec: rec, recAt: recAt, complete: complete,
-      settled: settled, warnings: warnings, order: rankIds(rec)
+      rounds: rounds, isDrawn: isDrawn, rec: rec, recAt: recAt,
+      complete: complete, settled: settled, warnings: warnings,
+      order: rankIds(rec)
     };
   }
 
@@ -1255,13 +1309,18 @@
       var ms = swiss.rounds[r];
       var decided = ms ? ms.filter(function (m) { return !!m.winner; }).length : 0;
       var size = ms ? ms.length : SWISS_ROUND_SIZES[r];
-      var official = ms && ms.length && ms.every(function (m) { return m.locked; });
+      var allPlayed = ms && ms.length && ms.every(function (m) { return m.locked; });
+      // Three states worth telling apart: played, drawn by Valve but not yet
+      // played, and worked out from the rules. The last one is the only one
+      // that can be wrong, so it should not look like the other two.
+      var drawn = !allPlayed && swiss.isDrawn[r];
+      var rule = allPlayed ? "Played" : (drawn ? "Official draw" : ROUND_RULE[r]);
 
       html += '<div class="roundcol"><div class="roundhead">' +
               '<div class="rh-top"><span class="n">Round ' + (r + 1) + "</span><span>" +
               (ms ? decided + "/" + size : size + " series") + "</span></div>" +
-              '<div class="rh-rule' + (official ? " official" : (r === 3 ? " cross" : "")) + '">' +
-              (official ? "Played" : ROUND_RULE[r]) + "</div>" +
+              '<div class="rh-rule' + (allPlayed || drawn ? " official" : (r === 3 ? " cross" : "")) + '">' +
+              rule + "</div>" +
               "</div>";
 
       if (!ms) {
