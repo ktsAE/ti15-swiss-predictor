@@ -1,0 +1,13 @@
+{
+  // Without this file, Cloudflare's Git integration served the repo root as
+  // static assets instead of running the build — index.html straight, not
+  // public/index.html. That file has no <meta charset>, because build.mjs is
+  // what adds it; the browser then had no encoding to go on and mojibake'd
+  // every non-ASCII character on the page, which is most of them: every
+  // score and W-L record uses an en dash.
+  "name": "ti15-swiss-predictor",
+  "compatibility_date": "2026-08-13",
+  "assets": {
+    "directory": "./public"
+  }
+}

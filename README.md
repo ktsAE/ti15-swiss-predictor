@@ -97,15 +97,22 @@ Any static host works: build with `node build.mjs`, serve `public/`. The build
 also writes `public/_headers`, so the security and cache headers travel with
 the output rather than living in one host's config file.
 
-**Cloudflare Pages** is what this is set up for. Connect the repo, then:
+**Cloudflare** is what this is set up for — either classic Pages or the newer
+Workers-with-assets, which is what "Connect to Git" defaults to now. Connect
+the repo, then set:
 
 | setting | value |
 | --- | --- |
 | build command | `node build.mjs` |
 | build output directory | `public` |
 
-`.node-version` pins Node 20 so the build does not land on a default old
-enough to choke on ESM and top-level await.
+`wrangler.jsonc` pins `assets.directory` to `./public` as well. It is not
+redundant with the dashboard setting: on Workers-with-assets, a project with
+no Wrangler config falls back to deploying the repo as-is, which serves
+`index.html` — the unwrapped Artifact source, missing `<meta charset>` among
+other things — instead of running the build at all. `.node-version` pins
+Node 20 so the build does not land on a default old enough to choke on ESM
+and top-level await.
 
 The free plan allows 500 builds a month with unmetered bandwidth, which
 matters: a full group stage is 44 results and therefore 44 deploys. Netlify's
