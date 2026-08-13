@@ -1,18 +1,24 @@
-# Pulls finished series off Liquipedia and commits them. The push is what
-# makes Netlify rebuild, so this one job closes the whole loop: wiki edit ->
-# live site, with nobody's laptop needing to be awake.
+# Keeps the bracket current during the event. The push is what makes Netlify
+# rebuild, so this one job closes the whole loop: result played -> live site,
+# with nobody's laptop needing to be awake.
 name: Update results
 
 on:
   schedule:
-    # Every 10 minutes. GitHub cron is UTC; TI plays roughly 02:00-14:00 UTC.
-    # Running around the clock costs nothing and covers schedule slips, and
-    # one parse request per 10 minutes sits far inside Liquipedia's limit of
-    # one per 30 seconds.
+    # This is a *starter*, not a ticker. GitHub runs scheduled workflows on a
+    # best-effort basis and drops most of them under load: asking for every
+    # ten minutes actually produced runs 40-160 minutes apart, which is not
+    # something a cron expression can fix.
+    #
+    # So the schedule only has to land occasionally, and the job below does
+    # its own polling once started. Actions minutes are free and unlimited on
+    # public repos, so a job that sits and waits costs nothing.
     - cron: "*/10 * * * *"
   workflow_dispatch:
 
-# A slow run must never overlap the next tick and race it to the same commit.
+# One at a time. A run that fires while another is polling waits its turn and
+# takes over when that one ends, which chains coverage rather than racing for
+# the same commit.
 concurrency:
   group: update-results
   cancel-in-progress: false
@@ -23,6 +29,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
 
@@ -30,25 +37,39 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Read Liquipedia
-        run: node update-results.mjs
-
-      # Netlify runs this on every deploy. Running it here too means a result
-      # that somehow breaks the build is caught before it is pushed, rather
-      # than failing the deploy and leaving the site on a stale bracket.
-      - name: Check it still builds
-        run: node build.mjs
-
-      - name: Commit if a series finished
+      - name: Poll for results
         run: |
-          if git diff --quiet -- index.html; then
-            echo "No new results."
-            exit 0
-          fi
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Scoped to index.html on purpose: this job runs unattended against a
-          # public repo, and `commit -a` would publish anything else that
-          # happened to be modified in the tree.
-          git commit -m "Results from Liquipedia" -- index.html
-          git push
+
+          # Just under the job timeout, so the next queued run picks up cleanly.
+          stop=$(( $(date +%s) + 48 * 60 ))
+
+          while :; do
+            # A source blip must cost one cycle, not the whole run.
+            node update-results.mjs || echo "updater failed this cycle, carrying on"
+
+            if ! git diff --quiet -- index.html; then
+              # Netlify runs this on every deploy. Checking here means a result
+              # that somehow breaks the build never reaches the site.
+              if node build.mjs > /dev/null; then
+                # Scoped to index.html on purpose: this runs unattended against
+                # a public repo, and `commit -a` would publish anything else
+                # that happened to be modified in the tree.
+                git commit -q -m "Results from Valve/OpenDota" -- index.html
+                echo "committed a result"
+              else
+                echo "that result breaks the build - reverting, not committing"
+                git checkout -- index.html
+              fi
+            fi
+
+            # Retries a push that failed earlier rather than stranding the
+            # commit here until the job ends.
+            if [ -n "$(git log --oneline origin/main..HEAD)" ]; then
+              if git push -q; then echo "pushed"; else echo "push failed, retrying next cycle"; fi
+            fi
+
+            [ "$(date +%s)" -ge "$stop" ] && break
+            sleep 300
+          done
