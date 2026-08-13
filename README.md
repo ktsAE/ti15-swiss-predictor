@@ -15,7 +15,8 @@ No dependencies, no build tooling, no network access at runtime. One HTML file.
 | `index.html` | the whole app: markup, styles and the pairing engine |
 | `build.mjs` | wraps `index.html` into a standalone page under `public/` |
 | `update-results.mjs` | pulls Valve's draw and the finished series into `index.html` |
-| `netlify.toml` | build command, publish directory, headers |
+| `netlify.toml` | Netlify's copy of the same build and header settings |
+| `.node-version` | pins Node 20 for the host's build image |
 
 `index.html` is written for Claude's Artifact host, which supplies the doctype
 and `<head>` itself — so the source starts at `<title>`. `build.mjs` adds that
@@ -92,13 +93,32 @@ an outage leaves the existing bracket alone rather than blanking it.
 
 ## Deploying
 
-Netlify builds with `node build.mjs` and serves `public/`.
+Any static host works: build with `node build.mjs`, serve `public/`. The build
+also writes `public/_headers`, so the security and cache headers travel with
+the output rather than living in one host's config file.
+
+**Cloudflare Pages** is what this is set up for. Connect the repo, then:
+
+| setting | value |
+| --- | --- |
+| build command | `node build.mjs` |
+| build output directory | `public` |
+
+`.node-version` pins Node 20 so the build does not land on a default old
+enough to choke on ESM and top-level await.
+
+The free plan allows 500 builds a month with unmetered bandwidth, which
+matters: a full group stage is 44 results and therefore 44 deploys. Netlify's
+free plan moved to a credit model that charges 15 credits per production
+deploy against 300 a month — about 20 deploys before the site goes offline
+until the 1st. `netlify.toml` is still here and still correct if you want it,
+but it will not survive a tournament on the free plan.
 
 The loop is closed by `.github/workflows/update-results.yml`, which runs the
 updater every ten minutes on GitHub's runners and commits `index.html` when a
-series has finished. That push is what makes Netlify rebuild, so a result
-reaches the site about a minute after it reaches Liquipedia — with no machine
-of your own needing to be awake at 05:00 for a Shanghai start time.
+series has finished. That push is what triggers the rebuild, so a result
+reaches the site about a minute after Valve records it — with no machine of
+your own needing to be awake at 05:00 for a Shanghai start time.
 
 It commits only when something changed, so a commit in the log means a real
 result landed. `workflow_dispatch` lets you run it by hand from the Actions

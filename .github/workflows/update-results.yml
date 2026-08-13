@@ -1,4 +1,4 @@
-# Keeps the bracket current during the event. The push is what makes Netlify
+# Keeps the bracket current during the event. The push is what makes the host
 # rebuild, so this one job closes the whole loop: result played -> live site,
 # with nobody's laptop needing to be awake.
 name: Update results
@@ -50,7 +50,7 @@ jobs:
             node update-results.mjs || echo "updater failed this cycle, carrying on"
 
             if ! git diff --quiet -- index.html; then
-              # Netlify runs this on every deploy. Checking here means a result
+              # The host runs this on every deploy. Checking here means a result
               # that somehow breaks the build never reaches the site.
               if node build.mjs > /dev/null; then
                 # Scoped to index.html on purpose: this runs unattended against
