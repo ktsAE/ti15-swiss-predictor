@@ -14,7 +14,7 @@ No dependencies, no build tooling, no network access at runtime. One HTML file.
 | --- | --- |
 | `index.html` | the whole app: markup, styles and the pairing engine |
 | `build.mjs` | wraps `index.html` into a standalone page under `public/` |
-| `update-results.mjs` | pulls finished series off Liquipedia into `index.html` |
+| `update-results.mjs` | pulls finished series off Valve and OpenDota into `index.html` |
 | `netlify.toml` | build command, publish directory, headers |
 
 `index.html` is written for Claude's Artifact host, which supplies the doctype
@@ -31,8 +31,16 @@ Series that have actually been played live in the `RESULTS` table near the top
 of the script in `index.html`, winner first, in the round they belong to:
 
 ```js
-r1: [["flcn", "lgd"], ["1w", "ngx"]]     // Falcons beat LGD, Iron Wing beat Nigma
+r1: [["flcn", "lgd", 2, 1], ["1w", "ngx", 2, 0]]   // Falcons beat LGD 2-1, Iron Wing beat Nigma 2-0
 ```
+
+The two numbers are the map score, and they matter beyond display: percentage
+of games won is Valve's third ranking criterion, ahead of opponents' wins.
+Everyone in a pairing bucket has the same win-loss record by definition, so
+the maps they dropped getting there are usually what decides who they play
+next. A bare pair still locks the series, but it is counted as 2-1 and the
+following round may pair wrongly. `update-results.mjs` always writes the
+score.
 
 A locked series renders as final, cannot be clicked, and survives "Clear
 picks", so a visitor arriving mid-event only picks what is still open.
@@ -42,16 +50,19 @@ Fill rounds in order — a round's pairings are not settled until everything
 before it is. Anything that is not a pairing the rules produce gets flagged in
 a banner on the page rather than silently ignored.
 
-You can fill the table by hand, or let Liquipedia do it:
+You can fill the table by hand, or let the updater do it:
 
 ```
 node update-results.mjs --dry     # show what would change
 node update-results.mjs           # write it into index.html
 ```
 
-One API request per run, well inside Liquipedia's rate limit. It records a
-series only once it is actually decided, and skips (loudly) any team name not
-in its lookup table.
+It reads the games from Valve's league API and OpenDota, groups them into
+series, and uses Liquipedia only as a cross-check — anything the wiki asserts
+that the game data contradicts is printed rather than silently resolved. A
+series is recorded only once it is actually decided, and any team it cannot
+match is skipped loudly. One request per source per run, well inside every
+rate limit.
 
 ## Deploying
 

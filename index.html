@@ -408,8 +408,20 @@
   table.stand td.nm { max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   table.stand td.grp { font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); width: 16px; }
   table.stand td.wl { font-family: var(--mono); font-size: 11.5px; }
+  /* Maps are a tiebreak, not the headline number, so they are set at the
+     weight of BH rather than of the series record they explain. */
+  table.stand td.gm { font-family: var(--mono); font-size: 10.5px; color: var(--ink-2); }
   table.stand td.bh { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
   table.stand td.mark { font-family: var(--mono); font-size: 10px; width: 18px; padding-left: 0; }
+  /* Three numeric columns rather than two in a 320px rail. Because td.nm is
+     max-width:0, any slack the table has goes to the number columns and is
+     taken off the team name, so these are pinned at what their widest value
+     needs — "4–1", "11–10", "18" — and the name keeps the rest. */
+  table.stand th:not(.l),
+  table.stand td.wl, table.stand td.gm, table.stand td.bh { padding-left: 5px; padding-right: 5px; }
+  table.stand td.wl { width: 44px; }
+  table.stand td.gm { width: 42px; }
+  table.stand td.bh { width: 28px; }
 
   tr.z-direct td.nm { color: var(--bronze); font-weight: 600; }
   tr.z-direct td.mark { color: var(--bronze); }
@@ -693,7 +705,7 @@
         <aside class="rail">
           <div class="railhead">
             <h3>Live standings</h3>
-            <p>Wins, then losses, then opponents' total wins.</p>
+            <p>Series, then maps won, then opponents' total wins.</p>
           </div>
           <table class="stand">
             <thead>
@@ -702,6 +714,7 @@
                 <th class="l">Team</th>
                 <th class="l" style="width:16px">G</th>
                 <th>W–L</th>
+                <th>Maps</th>
                 <th>BH</th>
                 <th style="width:18px"></th>
               </tr>
@@ -740,11 +753,18 @@
       (BoomBoys, Iron Wing, TEAM VISION, HULIGANI).
     </p>
     <p>
-      <strong>What is modelled loosely</strong> — the real tiebreak chain continues into game
-      win percentage, opponents' game win percentage and average game duration. This tool only
-      tracks series, so it resolves ties on wins, losses and opponents' wins, then falls back to
-      a fixed order. The tool stops where Valve's published information does: it names the eight
-      teams who reach the main event, but not their bracket seeding, which has not been announced.
+      <strong>How teams are ranked</strong> — Valve's order is matches won, matches lost,
+      percentage of games won, opponents' total wins, then opponents' average game win
+      percentage. All five are here, which matters more than it sounds: everyone in a pairing
+      bucket has the same record by definition, so the maps they dropped getting there are
+      usually the first thing that separates them. The chain ends in average game duration and
+      a coin toss, which this tool cannot know, so anything still level falls back to a fixed
+      order. A series you picked yourself has no map score, and counts as 2–1.
+    </p>
+    <p>
+      <strong>Where it stops</strong> — the tool goes as far as Valve's published information
+      does: it names the eight teams who reach the main event, but not their bracket seeding,
+      which has not been announced.
     </p>
     <p>
       <strong>Results already played</strong> are marked <em>final</em> and cannot be clicked.
@@ -801,9 +821,12 @@
 
          r2: [["flcn", "og", 2, 1], ["ts", "aur", 2, 0]]
 
-     Falcons beat OG two maps to one, Spirit beat Aurora two-nil. The two
-     numbers are the map score and are optional — a pair on its own still
-     locks the series, it just shows no score.
+     Falcons beat OG two maps to one, Spirit beat Aurora two-nil. Include the
+     map score. It is not decoration: percentage of games won is Valve's third
+     tiebreak, ahead of opponents' wins, and since everyone in a pairing bucket
+     has the same record by definition it is usually the thing that decides who
+     plays whom next. A bare pair still locks the series, but it is then
+     counted as 2-1 and the round after it may pair wrongly.
 
      A locked series shows as final, cannot be clicked, and is not touched
      by "Clear picks", so someone arriving on day three only picks what is
@@ -901,19 +924,50 @@
 
   /* ---------------- ranking ---------------- */
 
+  // What a decided series counts for when no map score was recorded — every
+  // series you picked yourself, and any result entered as a bare pair. 2-1 is
+  // the value that leaves a bucket of unscored teams exactly level on games,
+  // so the comparison falls through to opponents' wins the way it did before
+  // scores existed. Only real scores can move a team on this criterion.
+  var ASSUMED_SCORE = [2, 1];
+
   function buchholz(id, rec) {
     return rec[id].opps.reduce(function (s, o) { return s + rec[o].w; }, 0);
   }
 
-  // Valve's order: matches won, matches lost, then opponents' total wins.
-  // The chain continues into game-level stats this tool does not track, so
-  // anything still level falls back to a fixed order.
+  function gameShare(id, rec) {
+    var g = rec[id].gw + rec[id].gl;
+    return g ? rec[id].gw / g : 0;
+  }
+
+  function oppGameShare(id, rec) {
+    var o = rec[id].opps;
+    if (!o.length) return 0;
+    return o.reduce(function (s, x) { return s + gameShare(x, rec); }, 0) / o.length;
+  }
+
+  // Valve's published order, in full: matches won, matches lost, percentage of
+  // games won, opponents' total match wins, opponents' average game win
+  // percentage. It ends in average game duration and a coin toss, neither of
+  // which this tool can know, so anything still level falls back to a fixed
+  // order.
+  //
+  // Game win percentage sits third, ahead of opponents' wins, and it is what
+  // decides most real pairings: everyone in a bucket has the same record by
+  // definition, so the maps they dropped getting there are the first thing
+  // that separates them.
   function rankIds(rec) {
     return TEAMS.map(function (t) { return t.id; }).sort(function (x, y) {
       if (rec[y].w !== rec[x].w) return rec[y].w - rec[x].w;
       if (rec[x].l !== rec[y].l) return rec[x].l - rec[y].l;
+      // Cross-multiplied rather than divided, so two teams on the same share
+      // of games cannot separate on floating-point noise.
+      var g = rec[y].gw * (rec[x].gw + rec[x].gl) - rec[x].gw * (rec[y].gw + rec[y].gl);
+      if (g) return g;
       var bx = buchholz(x, rec), by = buchholz(y, rec);
       if (by !== bx) return by - bx;
+      var ox = oppGameShare(x, rec), oy = oppGameShare(y, rec);
+      if (oy !== ox) return oy - ox;
       return BY_ID[x].fallback - BY_ID[y].fallback;
     });
   }
@@ -995,7 +1049,7 @@
 
   function buildSwiss() {
     var rec = {};
-    TEAMS.forEach(function (t) { rec[t.id] = { w: 0, l: 0, opps: [] }; });
+    TEAMS.forEach(function (t) { rec[t.id] = { w: 0, l: 0, gw: 0, gl: 0, opps: [] }; });
 
     var played = {};
     var rounds = [];
@@ -1050,8 +1104,11 @@
       matches.forEach(function (m) {
         if (!m.winner) return;
         var loser = m.winner === m.a ? m.b : m.a;
+        var sc = m.score || ASSUMED_SCORE;
         rec[m.winner].w++;
         rec[loser].l++;
+        rec[m.winner].gw += sc[0]; rec[m.winner].gl += sc[1];
+        rec[loser].gw += sc[1];    rec[loser].gl += sc[0];
         rec[m.winner].opps.push(loser);
         rec[loser].opps.push(m.winner);
       });
@@ -1229,14 +1286,18 @@
       var knocked = rec[id].l >= ELIMINATE_AT;
       var zone = through ? "z-direct" : (knocked ? "z-out" : "z-mid");
 
-      if (i === 3) html += '<tr class="cutlabel d"><td colspan="6">Above — four wins, straight through</td></tr>';
-      if (i === 13) html += '<tr class="cutlabel o"><td colspan="6">Below — four losses, out</td></tr>';
+      if (i === 3) html += '<tr class="cutlabel d"><td colspan="7">Above — four wins, straight through</td></tr>';
+      if (i === 13) html += '<tr class="cutlabel o"><td colspan="7">Below — four losses, out</td></tr>';
 
       html += '<tr class="' + zone + (i === 3 ? " cut-direct" : (i === 13 ? " cut-out" : "")) + '">' +
               '<td class="pos l">' + (i + 1) + "</td>" +
               '<td class="nm l">' + esc(t.name) + "</td>" +
               '<td class="grp l">' + t.group + "</td>" +
               '<td class="wl">' + rec[id].w + "–" + rec[id].l + "</td>" +
+              // Third in Valve's tiebreak chain and the one that decides most
+              // pairings, so it is shown rather than left to be inferred from
+              // an order that would otherwise look arbitrary.
+              '<td class="gm">' + rec[id].gw + "–" + rec[id].gl + "</td>" +
               '<td class="bh">' + buchholz(id, rec) + "</td>" +
               '<td class="mark">' + (through ? "Q" : (knocked ? "✕" : "")) + "</td></tr>";
     });
