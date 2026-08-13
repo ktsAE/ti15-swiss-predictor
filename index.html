@@ -346,6 +346,10 @@
     font-variant-numeric: tabular-nums;
     flex: 0 0 auto;
   }
+  /* A map count is the result of the series, not a footnote to it, so it is
+     set larger than the record it replaces. Colour still comes from .won and
+     .lost, so the winner's number reads bronze like the rest of the row. */
+  .pick .rec.maps { font-size: 13px; font-weight: 700; color: var(--ink-2); }
 
   .pick.won {
     border-left-color: var(--bronze);
@@ -795,7 +799,11 @@
      RESULTS — series that have actually been played. Add each one as it
      finishes, winner first, to the round it belongs to:
 
-         r2: [["flcn", "og"], ["ts", "aur"]]     Falcons beat OG, etc.
+         r2: [["flcn", "og", 2, 1], ["ts", "aur", 2, 0]]
+
+     Falcons beat OG two maps to one, Spirit beat Aurora two-nil. The two
+     numbers are the map score and are optional — a pair on its own still
+     locks the series, it just shows no score.
 
      A locked series shows as final, cannot be clicked, and is not touched
      by "Clear picks", so someone arriving on day three only picks what is
@@ -805,7 +813,8 @@
      than quietly ignored.
      ------------------------------------------------------------------ */
   var RESULTS = {
-    r1:   [["flcn", "lgd"], ["1w", "ngx"], ["pari", "tr"], ["bb", "og"]],
+    r1:   [["flcn", "lgd", 2, 1], ["1w", "ngx", 2, 0], ["pari", "tr", 2, 1],
+           ["bb", "og", 2, 0]],
     r2:   [],
     r3:   [],
     r4:   [],
@@ -856,10 +865,26 @@
     return m;
   }
 
+  // Map scores, keyed the same way but kept in their own table so that a
+  // lock stays a plain team id everywhere it is used as one. The two extra
+  // numbers are optional: a result entered by hand without them still locks,
+  // it just shows no score.
+  function scoreMap(list) {
+    var m = {};
+    (list || []).forEach(function (p) {
+      if (p.length > 3) m[pkey(p[0], p[1])] = [p[2], p[3]];
+    });
+    return m;
+  }
+
   var SWISS_LOCKS = ["r1", "r2", "r3", "r4", "r5"].map(function (k) {
     return lockMap(RESULTS[k]);
   });
+  var SWISS_SCORES = ["r1", "r2", "r3", "r4", "r5"].map(function (k) {
+    return scoreMap(RESULTS[k]);
+  });
   var ELIM_LOCKS = lockMap(RESULTS.elim);
+  var ELIM_SCORES = scoreMap(RESULTS.elim);
 
   // Locked pairs that the rules never actually produced — a typo, or a
   // result entered before the round above it was filled in.
@@ -997,7 +1022,7 @@
 
       var pairs = (r === 0) ? ROUND_1 : pairRound(r, active, rec, played, rank);
 
-      var locks = SWISS_LOCKS[r];
+      var locks = SWISS_LOCKS[r], scores = SWISS_SCORES[r];
       var matches = pairs.map(function (p, i) {
         var id = "S" + r + "-" + i;
         var k = pkey(p[0], p[1]);
@@ -1006,7 +1031,7 @@
         if (w !== p[0] && w !== p[1]) w = null;
         return {
           id: id, a: p[0], b: p[1], winner: w, locked: !!fixed, bo: 3,
-          rematch: !!played[k]
+          score: scores[k] || null, rematch: !!played[k]
         };
       });
       rounds.push(matches);
@@ -1078,7 +1103,8 @@
       if (w !== c && w !== chosen) w = null;
       matches.push({
         id: mid, label: "Elimination " + (i + 1),
-        a: c, b: chosen, winner: w, locked: !!fixed, bo: 3
+        a: c, b: chosen, winner: w, locked: !!fixed, bo: 3,
+        score: ELIM_SCORES[pkey(c, chosen)] || null
       });
     }
 
@@ -1132,9 +1158,16 @@
       var t = BY_ID[id];
       var cls = "pick" + (done ? (m.winner === id ? " won" : " lost") : "") +
                 (m.locked ? " final" : "");
-      var tail = opts.rec
-        ? '<span class="rec">' + opts.rec[id].w + "–" + opts.rec[id].l + "</span>"
-        : "";
+      // A played series reports the maps it was won by; anything still open
+      // shows each side's record going into the round, which is the number
+      // that actually tells you what the match is worth.
+      var tail = "";
+      if (m.score) {
+        tail = '<span class="rec maps">' +
+               (id === m.winner ? m.score[0] : m.score[1]) + "</span>";
+      } else if (opts.rec) {
+        tail = '<span class="rec">' + opts.rec[id].w + "–" + opts.rec[id].l + "</span>";
+      }
       var body = '<span class="seed">' + esc(t.group) + "</span>" +
                  '<span class="nm">' + esc(t.name) + "</span>" + tail;
 

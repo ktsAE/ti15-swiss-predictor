@@ -184,7 +184,10 @@ async function decided(byId) {
     const loser = teams.find(t => String(t) !== String(winner));
     if (!byId[winner] || !byId[loser]) continue; // not a group-stage team
     out.push({ at: Math.min(...games.map(g => g.start_time)),
-               win: byId[winner], lose: byId[loser] });
+               win: byId[winner], lose: byId[loser],
+               // Maps taken by each side, so the page can show 2-1 rather
+               // than only who came out of it.
+               score: [tally[winner] || 0, tally[loser] || 0] });
   }
   return out.sort((a, b) => a.at - b.at);
 }
@@ -200,7 +203,8 @@ function attribute(list) {
   for (const s of list) {
     const n = Math.min(seen[s.win] || 0, seen[s.lose] || 0);
     if (n > 5) { beyond++; continue; }           // playoffs, not our concern
-    rounds[n < 5 ? "r" + (n + 1) : "elim"].push([s.win, s.lose]);
+    rounds[n < 5 ? "r" + (n + 1) : "elim"].push(
+      s.score ? [s.win, s.lose, s.score[0], s.score[1]] : [s.win, s.lose]);
     seen[s.win] = (seen[s.win] || 0) + 1;
     seen[s.lose] = (seen[s.lose] || 0) + 1;
   }
@@ -235,7 +239,9 @@ function rewrite(html, rounds) {
   const keys = ["r1", "r2", "r3", "r4", "r5", "elim"];
   const width = Math.max(...keys.map(k => k.length));
   const body = keys.map((k, i) => {
-    const pairs = rounds[k].map(p => `["${p[0]}", "${p[1]}"]`);
+    const pairs = rounds[k].map(p => p.length > 3
+      ? `["${p[0]}", "${p[1]}", ${p[2]}, ${p[3]}]`
+      : `["${p[0]}", "${p[1]}"]`);
     const pad = " ".repeat(width - k.length + 1);
     const comma = i === keys.length - 1 ? "" : ",";
     if (!pairs.length) return `    ${k}:${pad}[]${comma}`;
