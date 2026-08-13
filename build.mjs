@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
-  Wraps index.html into a standalone page in public/, which is what Netlify
-  serves.
+  Wraps index.html into a standalone page in public/, which is what the host
+  serves, and writes the _headers file next to it.
 
   index.html is written for the Artifact host, which supplies the doctype,
   <head> and a CSS reset itself — so the source starts at <title> and must
@@ -18,6 +18,21 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SRC = join(HERE, "index.html");
 const OUT = join(HERE, "public", "index.html");
+const HEADERS = join(HERE, "public", "_headers");
+
+// Cloudflare Pages and Netlify both read this file, so the security headers
+// travel with the build rather than living in one host's config. public/ is
+// generated and git-ignored, so it has to be written here to exist at all.
+//
+// One rule covers everything because the build is one file. That includes
+// the cache policy: results change during the event, and a bracket sitting
+// stale in somebody's cache is the failure that matters here.
+const HEADER_RULES = `/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'
+  Cache-Control: public, max-age=0, must-revalidate
+`;
 
 const DESCRIPTION =
   "Pick the winners of The International 2026 group stage and watch every " +
@@ -63,6 +78,8 @@ ${inner}
 
 await mkdir(dirname(OUT), { recursive: true });
 await writeFile(OUT, page);
+await writeFile(HEADERS, HEADER_RULES);
 
 const kb = n => (n / 1024).toFixed(1) + " KB";
 console.log(`public/index.html  ${kb(page.length)}  (source ${kb(body.length)})`);
+console.log(`public/_headers    ${HEADER_RULES.split("\n").length - 2} headers`);
