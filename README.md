@@ -14,7 +14,7 @@ No dependencies, no build tooling, no network access at runtime. One HTML file.
 | --- | --- |
 | `index.html` | the whole app: markup, styles and the pairing engine |
 | `build.mjs` | wraps `index.html` into a standalone page under `public/` |
-| `update-results.mjs` | pulls finished series off Valve and OpenDota into `index.html` |
+| `update-results.mjs` | pulls Valve's draw and the finished series into `index.html` |
 | `netlify.toml` | build command, publish directory, headers |
 
 `index.html` is written for Claude's Artifact host, which supplies the doctype
@@ -25,10 +25,33 @@ skeleton for anywhere else. Edit `index.html`; never edit `public/`.
 
 Open `index.html` in a browser. That is the whole development loop.
 
+## Where the pairings come from
+
+Two tables near the top of the script drive everything.
+
+`PAIRINGS` is Valve's published draw, a round at a time:
+
+```js
+r2: [["pari", "flcn"], ["bb", "1w"], ["lgd", "tr"], ["ngx", "og"], ...]
+```
+
+A round in there is used exactly as written. Only a round Valve has not drawn
+yet is worked out from the rules — which matters, because Valve's tiebreak
+chain ends in average game duration and a coin toss, and a bucket that gets
+that far cannot be reproduced from outside. Round 2 of group B was decided on
+game duration.
+
+A published round is trusted only while everything before it came from real
+results. Once you pick a winner yourself the bracket is yours, not Valve's,
+and every round after that is derived. A draw that does not pair exactly the
+teams still playing, each once, is rejected and derived instead: half a round,
+or one left over from results that have since changed, would otherwise show a
+team playing twice.
+
 ## Filling in results as the tournament runs
 
-Series that have actually been played live in the `RESULTS` table near the top
-of the script in `index.html`, winner first, in the round they belong to:
+Series that have actually been played live in the `RESULTS` table, winner
+first, in the round they belong to:
 
 ```js
 r1: [["flcn", "lgd", 2, 1], ["1w", "ngx", 2, 0]]   // Falcons beat LGD 2-1, Iron Wing beat Nigma 2-0
@@ -57,12 +80,15 @@ node update-results.mjs --dry     # show what would change
 node update-results.mjs           # write it into index.html
 ```
 
-It reads the games from Valve's league API and OpenDota, groups them into
-series, and uses Liquipedia only as a cross-check — anything the wiki asserts
-that the game data contradicts is printed rather than silently resolved. A
-series is recorded only once it is actually decided, and any team it cannot
-match is skipped loudly. One request per source per run, well inside every
-rate limit.
+It takes `PAIRINGS` from Valve's own bracket and `RESULTS` from the games
+Valve and OpenDota recorded, using Liquipedia only as a cross-check — anything
+the wiki asserts that the game data contradicts is printed rather than
+silently resolved. A series is recorded only once it is actually decided, and
+any team it cannot match is skipped loudly. One request per source per run,
+well inside every rate limit.
+
+`PAIRINGS` is only ever rewritten when Valve answers with a round-1 draw, so
+an outage leaves the existing bracket alone rather than blanking it.
 
 ## Deploying
 

@@ -1,12 +1,20 @@
 #!/usr/bin/env node
 /*
-  Reads the finished series off Liquipedia's TI 2026 group-stage page and
-  writes them into the RESULTS table in index.html.
+  Keeps index.html in step with the tournament. Two tables are written:
+
+      PAIRINGS   who plays whom, straight from Valve's published bracket
+      RESULTS    who won, from the games Valve and OpenDota recorded
 
       node update-results.mjs                 update index.html
       node update-results.mjs --dry           show the change, write nothing
       node update-results.mjs --from f.txt    read saved wikitext instead of
                                               calling the API (for testing)
+
+  Reading the pairings rather than deriving them is the point of PAIRINGS.
+  Valve's tiebreak chain ends in average game duration and a coin toss, so a
+  bucket that reaches either is not reproducible from outside — round 2 of
+  group B was settled on game duration. The page still derives any round
+  Valve has not drawn yet, which is what makes it a predictor.
 
   This runs on your machine, not in the page. The page is a single static
   file with no network access at all: the Artifact host blocks outbound
@@ -145,19 +153,62 @@ async function getJSON(url) {
   return res.json();
 }
 
+// Valve nests the group stage two deep: node_groups[] -> node_groups[] -> the
+// one called "Swiss". Walked rather than indexed, because the shape of the
+// playoff side of the tree is none of this tool's business.
+function groups(j) {
+  const out = [];
+  const walk = g => { out.push(g); (g.node_groups || []).forEach(walk); };
+  (j.node_groups || []).forEach(walk);
+  return out;
+}
+
 // team_id -> short id. Valve is the authority on who is in the tournament,
 // and matching on the number means a mid-event rename cannot lose a series.
-async function roster(unknown) {
-  const j = await getJSON(VALVE);
+function roster(j, unknown) {
   const map = {};
-  for (const g of j.node_groups || [])
+  for (const g of groups(j))
     for (const t of g.team_standings || []) {
+      // Valve leaves blank rows for teams it has not seeded yet.
+      if (!t.team_id) continue;
       // Valve pads some names — "Nigma Galaxy " arrives with a trailing space.
       const id = IDS[(t.team_name || "").trim().toLowerCase()];
       if (id) map[t.team_id] = id;
       else unknown.add(t.team_name);
     }
   return map;
+}
+
+// The pairings themselves, straight from Valve. Every Swiss node it has
+// assigned two teams to is a matchup it has committed to, whether or not the
+// series has been played — which is the whole point: a round that has been
+// drawn but not started is exactly the one this tool used to have to guess,
+// and guessing it means reproducing a tiebreak chain that ends in a coin toss.
+//
+// The round is counted the same lockstep way results are, rather than parsed
+// out of the "Match 5.B" names: the letter is the initial group, and rounds 4
+// and 5 are not played inside a group at all.
+function bracket(j, byId) {
+  const swiss = groups(j).find(g => g.name === "Swiss");
+  const rounds = { r1: [], r2: [], r3: [], r4: [], r5: [] };
+  if (!swiss) return { rounds, drawn: 0 };
+
+  const nodes = (swiss.nodes || [])
+    .filter(n => n.team_id_1 && n.team_id_2)
+    .sort((a, b) => (a.scheduled_time - b.scheduled_time) || (a.node_id - b.node_id));
+
+  const seen = {};
+  let drawn = 0;
+  for (const n of nodes) {
+    const a = byId[n.team_id_1], b = byId[n.team_id_2];
+    const r = Math.min(seen[n.team_id_1] || 0, seen[n.team_id_2] || 0);
+    seen[n.team_id_1] = (seen[n.team_id_1] || 0) + 1;
+    seen[n.team_id_2] = (seen[n.team_id_2] || 0) + 1;
+    if (!a || !b || r > 4) continue;             // unknown team, or past round 5
+    rounds["r" + (r + 1)].push([a, b]);
+    drawn++;
+  }
+  return { rounds, drawn };
 }
 
 // Games grouped into series. series_type gives the length, so Bo1 and Bo5
@@ -231,12 +282,12 @@ function disagreements(wiki, live) {
 
 /* ---------------- write ---------------- */
 
-function rewrite(html, rounds) {
-  const start = html.indexOf("  var RESULTS = {");
-  if (start < 0) throw new Error("RESULTS table not found in index.html");
+function rewrite(html, name, keys, rounds) {
+  const head = "  var " + name + " = {";
+  const start = html.indexOf(head);
+  if (start < 0) throw new Error(name + " table not found in index.html");
   const end = html.indexOf("};", start) + 2;
 
-  const keys = ["r1", "r2", "r3", "r4", "r5", "elim"];
   const width = Math.max(...keys.map(k => k.length));
   const body = keys.map((k, i) => {
     const pairs = rounds[k].map(p => p.length > 3
@@ -258,8 +309,11 @@ function rewrite(html, rounds) {
     return `    ${k}:${pad}[` + lines.join(",\n" + indent) + `]${comma}`;
   }).join("\n");
 
-  return html.slice(0, start) + "  var RESULTS = {\n" + body + "\n  };" + html.slice(end);
+  return html.slice(0, start) + head + "\n" + body + "\n  };" + html.slice(end);
 }
+
+const RESULT_KEYS = ["r1", "r2", "r3", "r4", "r5", "elim"];
+const PAIRING_KEYS = ["r1", "r2", "r3", "r4", "r5"];
 
 /* ---------------- run ---------------- */
 
@@ -290,10 +344,13 @@ const unknown = new Set(wiki.unknown);
 // Game data wins. It is derived from the matches Valve actually recorded,
 // so it cannot be blanked by a wiki edit; Liquipedia is kept as a second
 // opinion and its disagreements are reported rather than applied.
-let rounds = wiki.rounds, live = null;
+let rounds = wiki.rounds, live = null, drawn = null;
 if (!FROM) {
   try {
-    live = attribute(await decided(await roster(unknown)));
+    const valve = await getJSON(VALVE);
+    const byId = roster(valve, unknown);
+    drawn = bracket(valve, byId);
+    live = attribute(await decided(byId));
     rounds = live.rounds;
   } catch (e) {
     console.log("Valve/OpenDota unavailable (" + e.message + ")");
@@ -309,11 +366,15 @@ if (!live && !wikitext) {
 }
 
 const total = k => rounds[k].length;
-for (const k of ["r1", "r2", "r3", "r4", "r5", "elim"])
-  console.log(`  ${k.padEnd(5)} ${total(k) ? total(k) + " played" : "nothing yet"}`);
+for (const k of RESULT_KEYS) {
+  const drawnHere = drawn ? drawn.rounds[k] : null;
+  console.log(`  ${k.padEnd(5) } ${total(k) ? total(k) + " played" : "nothing yet"}` +
+              (drawnHere && drawnHere.length ? `, ${drawnHere.length} drawn` : ""));
+}
 
-const done = ["r1", "r2", "r3", "r4", "r5", "elim"].reduce((n, k) => n + total(k), 0);
+const done = RESULT_KEYS.reduce((n, k) => n + total(k), 0);
 console.log(`\n${done} series finished, ${44 - done} still to play`);
+if (drawn) console.log(`${drawn.drawn} of 39 group-stage pairings drawn by Valve`);
 
 if (live) {
   const off = disagreements(wiki.rounds, live.rounds);
@@ -332,12 +393,24 @@ if (unknown.size) {
 
 const file = join(HERE, "index.html");
 const html = await readFile(file, "utf8");
-const next = rewrite(html, rounds);
+let next = rewrite(html, "RESULTS", RESULT_KEYS, rounds);
 
-if (next === html) { console.log("\nindex.html already matches Liquipedia."); process.exit(0); }
+// The pairings table is only ever rewritten from Valve, and only when Valve
+// actually answered with a round-1 draw. Liquipedia does not feed it, so a
+// Valve outage must leave the existing table alone rather than blank the
+// bracket down to nothing.
+if (drawn && drawn.rounds.r1.length)
+  next = rewrite(next, "PAIRINGS", PAIRING_KEYS, drawn.rounds);
+else
+  console.log("\nNo draw from Valve this run — leaving PAIRINGS as they are.");
+
+if (next === html) { console.log("\nindex.html is already up to date."); process.exit(0); }
 if (DRY) {
   console.log("\n--dry: index.html not written. It would become:\n");
-  console.log(next.slice(next.indexOf("  var RESULTS = {"), next.indexOf("};", next.indexOf("  var RESULTS = {")) + 2));
+  for (const name of ["PAIRINGS", "RESULTS"]) {
+    const at = next.indexOf("  var " + name + " = {");
+    if (at >= 0) console.log(next.slice(at, next.indexOf("};", at) + 2) + "\n");
+  }
   process.exit(0);
 }
 
