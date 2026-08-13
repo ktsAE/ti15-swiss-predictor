@@ -312,6 +312,17 @@ function rewrite(html, name, keys, rounds) {
   return html.slice(0, start) + head + "\n" + body + "\n  };" + html.slice(end);
 }
 
+// Every entry in RESULTS starts with two quoted team ids, in both the plain
+// and the scored form, so this counts series without caring which table or
+// what shape. Used to check a new read against what index.html already has.
+function countSeries(html, name) {
+  const start = html.indexOf("  var " + name + " = {");
+  if (start < 0) return 0;
+  const end = html.indexOf("};", start) + 2;
+  const block = html.slice(start, end);
+  return (block.match(/\[\s*"[a-z0-9]+"\s*,\s*"[a-z0-9]+"/g) || []).length;
+}
+
 const RESULT_KEYS = ["r1", "r2", "r3", "r4", "r5", "elim"];
 const PAIRING_KEYS = ["r1", "r2", "r3", "r4", "r5"];
 
@@ -358,21 +369,35 @@ if (!FROM) {
   }
 }
 
-// Writing an empty table because both sources were unreachable would erase
-// results the page already has. Nothing known means nothing to say.
-if (!live && !wikitext) {
-  console.error("Both sources unreachable — leaving index.html alone.");
+const file = join(HERE, "index.html");
+const html = await readFile(file, "utf8");
+
+const total = k => rounds[k].length;
+const done = RESULT_KEYS.reduce((n, k) => n + total(k), 0);
+
+// A series, once decided, does not become undecided again — so if this run
+// knows about fewer of them than index.html already records, a source is
+// lying rather than reporting, and writing that over real results would be
+// worse than doing nothing. This has actually happened: Valve's API has
+// answered 200 with a literal `null` body, and Liquipedia's editors have
+// reset the page to empty {{Match}} stubs mid-tournament, more than once and
+// occasionally both in the same run. Either looks like "nothing has been
+// played" to the code above, which is indistinguishable from the truth on
+// day one but never legitimate once real results exist.
+const already = countSeries(html, "RESULTS");
+if (done < already) {
+  console.error(`This run found ${done} results; index.html already has ${already}. ` +
+                "A series can't become undecided, so a source is degraded this cycle " +
+                "— leaving index.html alone.");
   process.exit(1);
 }
 
-const total = k => rounds[k].length;
 for (const k of RESULT_KEYS) {
   const drawnHere = drawn ? drawn.rounds[k] : null;
   console.log(`  ${k.padEnd(5) } ${total(k) ? total(k) + " played" : "nothing yet"}` +
               (drawnHere && drawnHere.length ? `, ${drawnHere.length} drawn` : ""));
 }
 
-const done = RESULT_KEYS.reduce((n, k) => n + total(k), 0);
 console.log(`\n${done} series finished, ${44 - done} still to play`);
 if (drawn) console.log(`${drawn.drawn} of 39 group-stage pairings drawn by Valve`);
 
@@ -391,8 +416,6 @@ if (unknown.size) {
   console.log("Add them to IDS in this script.");
 }
 
-const file = join(HERE, "index.html");
-const html = await readFile(file, "utf8");
 let next = rewrite(html, "RESULTS", RESULT_KEYS, rounds);
 
 // The pairings table is only ever rewritten from Valve, and only when Valve
